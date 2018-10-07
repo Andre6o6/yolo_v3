@@ -59,7 +59,7 @@ model.load_weights(args.weightsfile)
 print("Network successfully loaded")
 
 model.net_info["height"] = args.reso    #???
-inp_dim = int(model.net_info["height"])
+inp_dim = int(model.net_info["height"]) #???
 assert inp_dim % 32 == 0 
 assert inp_dim > 32
 
@@ -90,12 +90,12 @@ def write(x, results):
     c2 = tuple(x[3:5].int())
     img = results
     cls = int(x[-1])
-    color = random.choice(colors)
+    color = colors[cls]
     label = "{0}".format(classes[cls])
     cv2.rectangle(img, c1, c2,color, 1)
     t_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_PLAIN, 1 , 1)[0]
     c2 = c1[0] + t_size[0] + 3, c1[1] + t_size[1] + 4
-    cv2.rectangle(img, c1, c2,color, -1)
+    cv2.rectangle(img, c1, c2, color, -1)
     cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
     return img
 
@@ -105,7 +105,6 @@ while cap.isOpened():
     
     if ret:   
         img = prep_image(frame, inp_dim)
-        #cv2.imshow("a", frame)
         im_dim = frame.shape[1], frame.shape[0]
         im_dim = torch.FloatTensor(im_dim).repeat(1,2)   
                      
