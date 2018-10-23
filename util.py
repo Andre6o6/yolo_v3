@@ -115,9 +115,10 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         confidence -- objectness score threshold 
         nms_conf -- the NMS IoU threshold
     
-    return: Tensor or None
+    return: tensor with predictions or empty tensor
     
     '''
+    output = torch.empty(0)     #concatenate predictions to this initially empty tensor
     
     #Object Confidence Thresholding
     #For each bbox having a objectness score below a threshold, set the values of every attribute to zero
@@ -133,9 +134,6 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
     prediction[:,:,:4] = box_corner[:,:,:4]
     
     batch_size = prediction.size(0)
-
-    output = None
-    write = False   #flag indicating that output is not empty
 
     #have to loop over all images in batch
     for ind in range(batch_size):
@@ -203,12 +201,9 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
             batch_ind = image_pred_class.new(image_pred_class.size(0), 1).fill_(ind)      
             #Repeat the batch_id for as many detections of the class cls in the image
             seq = batch_ind, image_pred_class
-
-            if output is None:
-                output = torch.cat(seq, dim=1)
-            else:
-                out = torch.cat(seq, dim=1)    
-                output = torch.cat((output,out))
+            
+            out = torch.cat(seq, dim=1) 
+            output = torch.cat((output,out))
 
     return output
 
@@ -242,7 +237,8 @@ def prep_image(img, inp_dim):
     Returns a Variable 
     """
 
-    img = cv2.resize(img, (inp_dim, inp_dim)) #FIXME???
+    #img = cv2.resize(img, (inp_dim, inp_dim)) 
+    img = letterbox_image(img, (inp_dim, inp_dim))
     img = img[:,:,::-1].transpose((2,0,1)).copy()
     img = torch.from_numpy(img).float().div(255.0).unsqueeze(0)
     return img

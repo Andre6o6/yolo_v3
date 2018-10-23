@@ -36,7 +36,7 @@ def arg_parse():
                         default = "weights/yolov3.weights", type = str)
     parser.add_argument("--reso", dest = 'reso', help = 
                         "Input resolution of the network. Increase to increase accuracy. Decrease to increase speed",
-                        default = "416", type = str)
+                        default = 416, type = int)
     parser.add_argument("--scales", dest = "scales", help = "Scales to use for detection",
                         default = "1,2,3", type = str)
     
@@ -87,6 +87,8 @@ confidence = float(args.confidence)
 nms_thresh = float(args.nms_thresh)
 
 CUDA = torch.cuda.is_available()
+if CUDA:
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
 num_classes = 80    #For COCO
 classes = load_classes("data/coco.names")
@@ -154,7 +156,7 @@ load_batch_time = time.time() - load_batch_time
 
 
 #Loop through batches
-output = None
+output = torch.empty(0)
 det_loop_time = time.time()
 
 for i, batch in enumerate(im_batches):
@@ -168,15 +170,12 @@ for i, batch in enumerate(im_batches):
 
     end = time.time()
 
-    if prediction is None:    #Objects not detected
+    if len(prediction)==0:    #Objects not detected
         continue
 
     prediction[:,0] += i*batch_size    #transform the attribute from index in batch to index in imlist 
 
-    if output is None:                 #If we have't initialised output
-        output = prediction
-    else:
-        output = torch.cat((output,prediction))
+    output = torch.cat((output,prediction))     #concatinate prediction to result tensor
 
     for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
         im_id = i*batch_size + im_num
@@ -191,7 +190,7 @@ for i, batch in enumerate(im_batches):
         
 det_loop_time = time.time() - det_loop_time
 
-if output is None:
+if len(output)==0:
     print ("No detections were made")
     exit()
 

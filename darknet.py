@@ -212,10 +212,10 @@ class Darknet(nn.Module):
                 #Get the number of classes
                 num_classes = int (module["classes"])
 
-                #Transform 
-                x = predict_transform(x, inp_dim, anchors, num_classes, CUDA)   # TODO if i am going to be training this net i probably need to move this out of forward pass
+                #Transform
+                x = predict_transform(x, inp_dim, anchors, num_classes, CUDA)
                 
-                detections = torch.cat((detections, x), dim=1)
+                detections = torch.cat((detections, x), dim=1)  #FIXME can have problems with cuda/non-cuda
 
             outputs[i] = x
             
