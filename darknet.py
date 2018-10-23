@@ -7,15 +7,6 @@ from torch.autograd import Variable
 import numpy as np
 from util import * 
 
-def get_test_input():
-    img = cv2.imread("dog-cycle-car.png")
-    img = cv2.resize(img, (416,416))          # Resize to the input dimension
-    img_ =  img[:,:,::-1].transpose((2,0,1))  # BGR -> RGB | H X W C -> C X H X W 
-    img_ = img_[np.newaxis,:,:,:]/255.0       # Add a channel at 0 (for batch) | Normalise
-    img_ = torch.from_numpy(img_).float()     # Convert to float
-    img_ = Variable(img_)                     # Convert to Variable
-    return img_
-
 def parse_cfg(cfgfile):
     """
     Takes a configuration file
@@ -118,27 +109,12 @@ def create_modules(blocks):
             
         #If it is a route layer
         elif (x["type"] == "route"):
-            x["layers"] = x["layers"].split(',')
-            #Start  of a route
-            start = int(x["layers"][0])
-            #end, if there exists one.
-            try:
-                end = int(x["layers"][1])
-            except:
-                end = 0
-            #Convert positive anotation to negative
-            if start > 0: 
-                start = start - index
-            if end > 0:
-                end = end - index
+            
             route = EmptyLayer()   #Put a dummy layer in place of a route layer. Concatination will be performed
                                    #directly in forward function of nn.Module object representing darknet.
             module.add_module("route_{0}".format(index), route)
-            #If we are concatenating maps
-            if end < 0:
-                filters = output_filters[index + start] + output_filters[index + end]
-            else:
-                filters= output_filters[index + start]
+            
+            filters = sum([output_filters[int(i)] for i in x['layers'].split(',')]) #FIXME check if works right
                 
         #shortcut corresponds to skip connection
         elif x["type"] == "shortcut":
@@ -169,7 +145,7 @@ class Darknet(nn.Module):
         self.blocks = parse_cfg(cfgfile)
         self.net_info, self.module_list = create_modules(self.blocks)
     
-    def forward(self, x, CUDA):  #TODO remove CUDA bool
+    def forward(self, x, CUDA):
         modules = self.blocks[1:]
         outputs = {}   #We cache the outputs for the route layer
         detections = torch.empty(0)   # concatenate all bbox predictions to this initially empty tensor

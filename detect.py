@@ -157,6 +157,7 @@ load_batch_time = time.time() - load_batch_time
 
 #Loop through batches
 output = torch.empty(0)
+no_detections = 0
 det_loop_time = time.time()
 
 for i, batch in enumerate(im_batches):
@@ -171,6 +172,7 @@ for i, batch in enumerate(im_batches):
     end = time.time()
 
     if len(prediction)==0:    #Objects not detected
+        no_detections += 1
         continue
 
     prediction[:,0] += i*batch_size    #transform the attribute from index in batch to index in imlist 
@@ -245,5 +247,6 @@ print("{:25s}: {:2.3f}".format("Output Processing", output_recast_time))
 print("{:25s}: {:2.3f}".format("Drawing Boxes", draw_time))
 print("{:25s}: {:2.3f}".format("Average time_per_img", (end_time - start_time)/len(imlist)))
 print("----------------------------------------------------------")
+print("No detections on {} images".format(no_detections))
 
 torch.cuda.empty_cache()
