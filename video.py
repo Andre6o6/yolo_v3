@@ -32,8 +32,7 @@ def arg_parse():
                         "Input resolution of the network. Increase to increase accuracy. Decrease to increase speed",
                         default = "416", type = str)
     parser.add_argument("--video", dest = "videofile", help = "Video file to run detection on", 
-                        default = "video.avi", type = str)
-    parser.add_argument("--webcam", action='store_true', help="Use webcam feed")
+                        default = "None", type = str)
     
     return parser.parse_args()
 
@@ -71,11 +70,11 @@ model.eval()
 
 
 # Open the video / camera feed in OpenCV
-if args.webcam:
-    cap = cv2.VideoCapture(0)  #for webcam
-else:
+if args.videofile != "None":
     videofile = args.videofile #path to the video file. 
-    cap = cv2.VideoCapture(videofile)  
+    cap = cv2.VideoCapture(videofile) 
+else:
+    cap = cv2.VideoCapture(0)  #for webcam
 
 assert cap.isOpened(), 'Cannot capture source'
 

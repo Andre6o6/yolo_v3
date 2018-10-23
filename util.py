@@ -106,15 +106,24 @@ def bbox_iou(box1, box2):
 
 
 def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
-    #confidence -- objectness score threshold 
-    #nms_conf -- the NMS IoU threshold
+    '''
+    Convert the output of deep conv net to more readable form.
+    Perform Confidence Thresholding and Non-max Suppression.
+    
+    params:
+        prediction -- tensor [B x (# of bboxes) x (# of attributes in box)]
+        confidence -- objectness score threshold 
+        nms_conf -- the NMS IoU threshold
+    
+    return: Tensor or None
+    
+    '''
     
     #Object Confidence Thresholding
     #For each bbox having a objectness score below a threshold, set the values of every attribute to zero
     conf_mask = (prediction[:,:,4] > confidence).float().unsqueeze(2)
     prediction = prediction*conf_mask
     
-    #Non-maximum Suppression
     #Rewrite bbox representation: centre+size --> corners
     box_corner = prediction.new(prediction.shape)
     box_corner[:,:,0] = (prediction[:,:,0] - prediction[:,:,2]/2)
@@ -125,13 +134,12 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
     
     batch_size = prediction.size(0)
 
+    output = None
     write = False   #flag indicating that output is not empty
 
     #have to loop over all images in batch
     for ind in range(batch_size):
         image_pred = prediction[ind]          #image Tensor
-        #confidence threshholding 
-        #NMS
         
         #Get max class probabilities and its indexes for all bboxes
         max_conf, max_conf_score = torch.max(image_pred[:,5:5+ num_classes], 1)
@@ -143,12 +151,12 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         image_pred = torch.cat(seq, 1)
         
         #get rid of bboxes that were zeroed out
-        non_zero_ind =  (torch.nonzero(image_pred[:,4]))
+        non_zero_ind = (torch.nonzero(image_pred[:,4]))
+        #FIXME
         try:
             image_pred_ = image_pred[non_zero_ind.squeeze(),:].view(-1,7)
         except:
-            #no detections 
-            continue
+            continue    #no detections
         
         #For PyTorch 0.4 compatibility
         #Since the above code with not raise exception for no detection 
@@ -160,20 +168,19 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
         img_classes = unique(image_pred_[:,-1]) # -1 (last) index holds the class index
 
         for cls in img_classes:
-            #perform NMS
+            #perform Non-maximum Suppression
             
             #get the detections with one particular class
             cls_mask = image_pred_*(image_pred_[:,-1] == cls).float().unsqueeze(1)
             class_mask_ind = torch.nonzero(cls_mask[:,-2]).squeeze()
             image_pred_class = image_pred_[class_mask_ind].view(-1,7)
 
-            #sort the detections such that the entry with the maximum objectness
-            #confidence is at the top
+            #sort the detections by objectness confidence
             conf_sort_index = torch.sort(image_pred_class[:,4], descending = True )[1]
             image_pred_class = image_pred_class[conf_sort_index]
             idx = image_pred_class.size(0)   #Number of detections
             
-            #FIXME change to while look to get rid of try-except hacks
+            #FIXME change to while loop to get rid of try-except hacks
             for i in range(idx):
                 #Get the IOUs of all boxes that come after the one we are looking at 
                 #in the loop
@@ -197,18 +204,13 @@ def write_results(prediction, confidence, num_classes, nms_conf = 0.4):
             #Repeat the batch_id for as many detections of the class cls in the image
             seq = batch_ind, image_pred_class
 
-            if not write:
-                output = torch.cat(seq,1)
-                write = True
+            if output is None:
+                output = torch.cat(seq, dim=1)
             else:
-                out = torch.cat(seq,1)    
+                out = torch.cat(seq, dim=1)    
                 output = torch.cat((output,out))
 
-    #FIXME try-catch hacks again (`if write` mb)
-    try:
-        return output
-    except:
-        return 0
+    return output
 
 def load_classes(namesfile):
     fp = open(namesfile, "r")

@@ -148,7 +148,7 @@ def create_modules(blocks):
         #Yolo is the detection layer
         elif x["type"] == "yolo":
             mask = x["mask"].split(",")
-            mask = [int(x) for x in mask]         # store mask as list
+            mask = [int(i) for i in mask]         # store mask as list
 
             anchors = x["anchors"].split(",")
             anchors = [int(a) for a in anchors]   # store anchors as list containing...
@@ -172,9 +172,8 @@ class Darknet(nn.Module):
     def forward(self, x, CUDA):  #TODO remove CUDA bool
         modules = self.blocks[1:]
         outputs = {}   #We cache the outputs for the route layer
+        detections = torch.empty(0)   # concatenate all bbox predictions to this initially empty tensor
         
-        write = False #Flag, indicating that we already have encountered the first detection
-                      #and can concatinate further detections (on differrent scales) to it
         for i, module in enumerate(modules):        
             module_type = (module["type"])
             
@@ -214,14 +213,9 @@ class Darknet(nn.Module):
                 num_classes = int (module["classes"])
 
                 #Transform 
-                x = x.data
-                x = predict_transform(x, inp_dim, anchors, num_classes, CUDA)
-                if not write:              #if no collector has been intialised. 
-                    detections = x
-                    write = True
-
-                else:       
-                    detections = torch.cat((detections, x), 1)
+                x = predict_transform(x, inp_dim, anchors, num_classes, CUDA)   # TODO if i am going to be training this net i probably need to move this out of forward pass
+                
+                detections = torch.cat((detections, x), dim=1)
 
             outputs[i] = x
             
