@@ -8,7 +8,7 @@ import cv2
 from util import *
 import argparse
 import os 
-import os.path as osp
+import os.path
 from darknet import Darknet
 import pickle as pkl
 import pandas as pd
@@ -78,6 +78,10 @@ def draw_bbox(x, results):
     cv2.putText(img, label, (c1[0], c1[1] + t_size[1] + 4), cv2.FONT_HERSHEY_PLAIN, 1, [225,255,255], 1);
     return img
 
+def view_image(image):
+    #TODO
+    pass
+
 # Parse arguments
 args = arg_parse()
 
@@ -85,6 +89,9 @@ images = args.images
 batch_size = int(args.bs)
 confidence = float(args.confidence)
 nms_thresh = float(args.nms_thresh)
+
+verbose = False #FIXME to arguments
+FORMATS = {'.jpg', '.jpeg', '.png'}
 
 CUDA = torch.cuda.is_available()
 if CUDA:
@@ -110,16 +117,20 @@ start_time = time.time()    #checkpoint used to measure time
 read_dir_time = time.time()
 
 # Load image directories
-#FIXME
-try:
-    imlist = [osp.join(osp.realpath('.'), images, img) for img in os.listdir(images)]
-except NotADirectoryError:
-    imlist = []
-    imlist.append(osp.join(osp.realpath('.'), images))
-except FileNotFoundError:
+imlist = []
+if os.path.isdir(images):
+    imlist = [os.path.join(os.path.realpath('.'), images, img) for img in os.listdir(images)]
+elif os.path.isfile(images):
+    ext = os.path.splitext(images)[1]
+    if ext not in FORMATS:
+        print("Not a supported image")
+        exit()
+    imlist.append(os.path.join(os.path.realpath('.'), images))
+else:
     print ("No file or directory with the name {}".format(images))
     exit()
     
+# Create dir for processed images
 if not os.path.exists(args.det):
     os.makedirs(args.det)
     
@@ -178,13 +189,14 @@ for i, batch in enumerate(im_batches):
     prediction[:,0] += i*batch_size    #transform the attribute from index in batch to index in imlist 
 
     output = torch.cat((output,prediction))     #concatinate prediction to result tensor
-
-    for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
-        im_id = i*batch_size + im_num
-        objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]
-        print("{0:20s} predicted in {1:6.3f} seconds".format(image.split("/")[-1], (end - start)/batch_size))
-        print("{0:20s} {1:s}".format("Objects Detected:", " ".join(objs)))
-        print("----------------------------------------------------------")
+    
+    if verbose:
+        for im_num, image in enumerate(imlist[i*batch_size: min((i +  1)*batch_size, len(imlist))]):
+            im_id = i*batch_size + im_num
+            objs = [classes[int(x[-1])] for x in output if int(x[0]) == im_id]
+            print("{0:20s} predicted in {1:6.3f} seconds".format(image.split("/")[-1], (end - start)/batch_size))
+            print("{0:20s} {1:s}".format("Objects Detected:", " ".join(objs)))
+            print("----------------------------------------------------------")
 
     if CUDA:
         torch.cuda.synchronize()  #make sure CUDA returns control to CPU only after GPU work is done
@@ -196,6 +208,8 @@ if len(output)==0:
     print ("No detections were made")
     exit()
 
+if no_detections != 0:
+    print("No detections on {} images.".format(no_detections))
 
 
 output_recast_time = time.time()
